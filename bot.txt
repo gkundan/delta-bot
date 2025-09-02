@@ -1,0 +1,54 @@
+import os
+import hmac
+import hashlib
+import requests
+import time
+from dotenv import load_dotenv
+
+# Load API keys from .env
+load_dotenv()
+API_KEY = os.getenv("DELTA_API_KEY")
+API_SECRET = os.getenv("DELTA_API_SECRET")
+
+# Base URL for Delta Exchange India
+BASE_URL = "https://api.india.delta.exchange"
+
+def get_timestamp():
+    # Use local unix time (seconds)
+    return str(int(time.time()))
+
+def sign_request(method, path, body=""):
+    timestamp = get_timestamp()
+    # ✅ Correct order: timestamp + method + path + body
+    message = timestamp + method.upper() + path + body
+    print("🔑 Signature String:", message)  # Debug print
+    signature = hmac.new(
+        API_SECRET.encode(),
+        message.encode(),
+        hashlib.sha256
+    ).hexdigest()
+    return timestamp, signature
+
+def get_balance():
+    path = "/v2/wallet/balances"
+    method = "GET"
+    timestamp, signature = sign_request(method, path)
+
+    headers = {
+        "api-key": API_KEY,
+        "timestamp": timestamp,
+        "signature": signature,
+        "Content-Type": "application/json"
+    }
+
+    url = BASE_URL + path
+    res = requests.get(url, headers=headers)
+    print("🔍 Balance Raw Response:", res.text)
+    try:
+        return res.json()
+    except Exception as e:
+        return {"error": f"Failed to parse JSON: {e}"}
+
+if __name__ == "__main__":
+    balance = get_balance()
+    print("💰 Account Balance:", balance)
